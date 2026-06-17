@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agents
+.agents/
+ANTIGRAVITY_SYSTEM_PROMPT.md
+skills-lock.json
+

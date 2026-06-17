@@ -1,0 +1,1 @@
+-- Local development seed file. Left empty to ensure database starts clean without mock users.

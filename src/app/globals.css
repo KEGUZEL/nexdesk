@@ -1,26 +1,68 @@
 @import "tailwindcss";
 
+@theme {
+  --color-bg-base: #0A0B0F;
+  --color-bg-surface: #111318;
+  --color-bg-elevated: #1A1D25;
+  --color-bg-hover: #1E2230;
+  --color-bg-selected: #1E2A4A;
+
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.10);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+
+  --color-primary: #6366F1;
+  --color-primary-hover: #818CF8;
+  --color-primary-subtle: rgba(99, 102, 241, 0.15);
+  --color-primary-muted: rgba(99, 102, 241, 0.08);
+
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted: #475569;
+  --color-text-disabled: #334155;
+
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #3B82F6;
+
+  --color-priority-low: #10B981;
+  --color-priority-medium: #F59E0B;
+  --color-priority-high: #F97316;
+  --color-priority-critical: #EF4444;
+
+  --color-status-open: #6366F1;
+  --color-status-in-progress: #3B82F6;
+  --color-status-waiting: #F59E0B;
+  --color-status-resolved: #10B981;
+  --color-status-closed: #475569;
+
+  --shadow-glow: 0 0 24px rgba(99, 102, 241, 0.15);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #0A0B0F;
+  --foreground: #F8FAFC;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+select {
+  background-color: #0A0B0F !important;
+  color: #F8FAFC !important;
+}
+
+select option {
+  background-color: #111318 !important;
+  color: #F8FAFC !important;
 }
