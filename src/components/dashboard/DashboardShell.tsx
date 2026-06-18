@@ -35,7 +35,10 @@ import {
   Paperclip,
   Calendar,
   UserCheck,
-  ChevronDown
+  ChevronDown,
+  Menu,
+  ArrowLeft,
+  ChevronRight
 } from "lucide-react";
 
 interface Ticket {
@@ -207,6 +210,11 @@ export default function DashboardShell({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<"dashboard" | "tickets" | "team" | "settings">("tickets");
   
+  // Mobile sidebar state
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  // Mobile: whether ticket detail is shown (full-screen on mobile)
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  
   // Stateful listings
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -217,6 +225,7 @@ export default function DashboardShell({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   
   // Modals & status load
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -613,7 +622,7 @@ export default function DashboardShell({
       case "HIGH":
         return { label: "High", color: "text-orange-400 bg-orange-500/10 border-orange-500/20", icon: ArrowUp };
       case "MEDIUM":
-        return { label: "Medium", color: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20", icon: Minus };
+        return { label: "Med", color: "text-yellow-400 bg-yellow-500/10 border-yellow-500/20", icon: Minus };
       case "LOW":
       default:
         return { label: "Low", color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20", icon: ArrowDown };
@@ -646,29 +655,76 @@ export default function DashboardShell({
 
   const selectedTicket = tickets.find(t => t.id === selectedTicketId);
 
+  // Nav items helper
+  const navItems = [
+    { id: "dashboard" as const, label: "Dashboard", icon: BarChart3 },
+    { id: "tickets" as const, label: "Tickets", icon: CheckSquare, badge: tickets.length },
+    ...(userProfile?.role === "agent" ? [{ id: "team" as const, label: "Users", icon: Users }] : []),
+    { id: "settings" as const, label: "Settings", icon: Settings },
+  ];
+
+  const handleNavClick = (tab: "dashboard" | "tickets" | "team" | "settings") => {
+    setActiveTab(tab);
+    setSelectedTicketId(null);
+    setMobileDetailOpen(false);
+    setIsMobileSidebarOpen(false);
+  };
+
+  const handleTicketSelect = (ticketId: string) => {
+    setSelectedTicketId(ticketId);
+    setMobileDetailOpen(true);
+  };
+
+  const handleBackToList = () => {
+    setMobileDetailOpen(false);
+    setSelectedTicketId(null);
+  };
+
   return (
     <div className="flex min-h-screen bg-bg-base text-text-primary">
-      {/* Sidebar - Desktop */}
-      <aside className="hidden w-64 border-r border-border-subtle bg-bg-surface p-6 md:flex flex-col justify-between shrink-0 select-none">
-        <div className="space-y-8">
+      {/* Mobile Sidebar Overlay */}
+      {isMobileSidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+          onClick={() => setIsMobileSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-72 border-r border-border-subtle bg-bg-surface flex flex-col justify-between shrink-0 select-none
+        transition-transform duration-300 ease-in-out
+        ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        md:relative md:translate-x-0 md:w-64 md:flex
+      `}>
+        <div className="space-y-6 p-6 overflow-y-auto flex-1">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-glow">
-              <FolderKanban className="h-5 w-5 text-white" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary shadow-glow shrink-0">
+                <FolderKanban className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <span className="font-semibold text-lg tracking-tight block">NexDesk</span>
+                <span className="text-text-muted text-[10px] uppercase font-mono tracking-wider">Help Desk</span>
+              </div>
             </div>
-            <div>
-              <span className="font-semibold text-lg tracking-tight block">NexDesk</span>
-              <span className="text-text-muted text-[10px] uppercase font-mono tracking-wider">Help Desk</span>
-            </div>
+            {/* Close button on mobile */}
+            <button
+              className="md:hidden p-1.5 rounded-lg hover:bg-bg-hover text-text-secondary"
+              onClick={() => setIsMobileSidebarOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
           {/* User profile capsule */}
           {userProfile && (
             <div className="rounded-xl border border-border-subtle bg-bg-elevated p-3 flex items-center gap-3">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-tr from-primary to-violet-500 flex items-center justify-center font-bold text-xs text-white uppercase">
+              <div className="h-9 w-9 rounded-lg bg-gradient-to-tr from-primary to-violet-500 flex items-center justify-center font-bold text-xs text-white uppercase shrink-0">
                 {userProfile.name.slice(0, 2)}
               </div>
-              <div className="overflow-hidden">
+              <div className="overflow-hidden min-w-0">
                 <span className="font-semibold text-xs text-text-primary block truncate">{userProfile.name}</span>
                 <span className="text-[10px] text-primary uppercase font-mono font-bold tracking-wider">
                   {userProfile.role}
@@ -679,81 +735,53 @@ export default function DashboardShell({
 
           {/* Navigation */}
           <nav className="space-y-1">
-            <button 
-              onClick={() => { setActiveTab("dashboard"); setSelectedTicketId(null); }}
-              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === "dashboard" 
-                  ? "bg-bg-selected text-primary font-semibold" 
-                  : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
-              }`}
-            >
-              <BarChart3 className="h-4.5 w-4.5" />
-              <span>Dashboard</span>
-            </button>
-            <button 
-              onClick={() => setActiveTab("tickets")}
-              className={`w-full flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                activeTab === "tickets" 
-                  ? "bg-bg-selected text-primary font-semibold" 
-                  : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <CheckSquare className="h-4.5 w-4.5" />
-                <span>Support Tickets</span>
-              </div>
-              <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary">{tickets.length}</span>
-            </button>
-            {userProfile?.role === "agent" && (
-              <button 
-                onClick={() => { setActiveTab("team"); setSelectedTicketId(null); }}
-                className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  activeTab === "team" 
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleNavClick(item.id)}
+                className={`w-full flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  activeTab === item.id 
                     ? "bg-bg-selected text-primary font-semibold" 
                     : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
                 }`}
               >
-                <Users className="h-4.5 w-4.5" />
-                <span>Agents & Users</span>
+                <div className="flex items-center gap-3">
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  <span>{item.label}</span>
+                </div>
+                {"badge" in item && item.badge !== undefined && (
+                  <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary">
+                    {item.badge}
+                  </span>
+                )}
               </button>
-            )}
-            <button 
-              onClick={() => { setActiveTab("settings"); setSelectedTicketId(null); }}
-              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                activeTab === "settings" 
-                  ? "bg-bg-selected text-primary font-semibold" 
-                  : "text-text-secondary hover:bg-bg-hover hover:text-text-primary"
-              }`}
-            >
-              <Settings className="h-4.5 w-4.5" />
-              <span>Settings</span>
-            </button>
+            ))}
           </nav>
 
           {/* Sidebar Separator */}
           <div className="h-[1px] bg-border-subtle" />
 
-          {/* Priorities list mock */}
+          {/* Priorities list */}
           <div className="space-y-3">
-            <span className="text-[11px] font-mono font-medium uppercase tracking-wider text-text-muted">Tickets priorities</span>
+            <span className="text-[11px] font-mono font-medium uppercase tracking-wider text-text-muted">Ticket priorities</span>
             <ul className="space-y-2 text-xs">
               <li className="flex items-center justify-between text-text-secondary">
                 <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                  <span className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
                   High Priority
                 </span>
                 <span className="font-semibold">{tickets.filter(t => t.priority === "HIGH").length}</span>
               </li>
               <li className="flex items-center justify-between text-text-secondary">
                 <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-yellow-500" />
+                  <span className="h-2 w-2 rounded-full bg-yellow-500 shrink-0" />
                   Medium Priority
                 </span>
                 <span className="font-semibold">{tickets.filter(t => t.priority === "MEDIUM").length}</span>
               </li>
               <li className="flex items-center justify-between text-text-secondary">
                 <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
                   Low Priority
                 </span>
                 <span className="font-semibold">{tickets.filter(t => t.priority === "LOW").length}</span>
@@ -763,49 +791,80 @@ export default function DashboardShell({
         </div>
 
         {/* Footer actions */}
-        <div className="space-y-4">
+        <div className="p-4 border-t border-border-subtle">
           <button 
             onClick={handleLogout}
             className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors"
           >
-            <LogOut className="h-4.5 w-4.5" />
+            <LogOut className="h-4 w-4 shrink-0" />
             <span>Sign Out</span>
           </button>
         </div>
       </aside>
 
       {/* Main Content Container */}
-      <div className="flex flex-1 flex-col overflow-x-hidden">
+      <div className="flex flex-1 flex-col min-w-0 overflow-x-hidden">
         {/* Topbar */}
-        <header className="flex h-16 items-center justify-between border-b border-border-subtle bg-bg-surface/50 px-6 backdrop-blur-md sticky top-0 z-40 select-none">
-          <div className="flex items-center gap-4 w-1/3">
-            {activeTab === "tickets" && (
-              <div className="relative w-full max-w-xs">
+        <header className="flex h-14 md:h-16 items-center justify-between border-b border-border-subtle bg-bg-surface/50 px-4 md:px-6 backdrop-blur-md sticky top-0 z-40 select-none gap-3">
+          {/* Left: hamburger + search */}
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {/* Hamburger - mobile only */}
+            <button
+              className="md:hidden p-2 rounded-lg hover:bg-bg-hover text-text-secondary transition-colors shrink-0"
+              onClick={() => setIsMobileSidebarOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            {/* Mobile: back button in ticket detail */}
+            {mobileDetailOpen && activeTab === "tickets" && (
+              <button
+                className="md:hidden flex items-center gap-1.5 text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors shrink-0"
+                onClick={handleBackToList}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back</span>
+              </button>
+            )}
+
+            {/* Search bar - only in tickets tab and not in mobile detail view */}
+            {activeTab === "tickets" && !mobileDetailOpen && (
+              <div className="relative flex-1 max-w-xs">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
                 <input 
                   type="text" 
-                  placeholder="Search tickets by title..." 
+                  placeholder="Search tickets..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-lg border border-border-subtle bg-bg-base py-1.5 pl-9 pr-4 text-xs text-text-primary placeholder-text-muted outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary/20"
                 />
               </div>
             )}
+
+            {/* Page title on mobile detail */}
+            {mobileDetailOpen && activeTab === "tickets" && selectedTicket && (
+              <span className="text-sm font-semibold text-text-primary truncate">
+                {selectedTicket.title}
+              </span>
+            )}
           </div>
 
-          {/* Database connection indicator */}
-          <div className="flex items-center gap-4">
+          {/* Right: logo on mobile (when sidebar hidden) */}
+          <div className="md:hidden flex items-center gap-2 shrink-0">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary shadow-glow">
+              <FolderKanban className="h-3.5 w-3.5 text-white" />
+            </div>
           </div>
         </header>
 
         {/* Dynamic Panels */}
-        <main className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full space-y-6">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-4 md:space-y-6">
 
           {/* 1. Dashboard View */}
           {activeTab === "dashboard" && (
-            <div className="space-y-6">
+            <div className="space-y-4 md:space-y-6">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-text-primary via-slate-100 to-text-secondary bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-text-primary via-slate-100 to-text-secondary bg-clip-text text-transparent">
                   Backlog Overview
                 </h1>
                 <p className="mt-1 text-sm text-text-secondary">
@@ -814,32 +873,32 @@ export default function DashboardShell({
               </div>
 
               {/* Metrics card row */}
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="rounded-xl border border-border-subtle bg-bg-surface p-5 shadow-sm">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+                <div className="rounded-xl border border-border-subtle bg-bg-surface p-4 md:p-5 shadow-sm">
                   <span className="text-xs font-mono tracking-wider uppercase text-text-secondary font-bold">Open Tickets</span>
                   <div className="mt-2 text-3xl font-semibold text-indigo-400">
                     {tickets.filter(t => t.status === "OPEN" || t.status === "IN_PROGRESS").length}
                   </div>
                 </div>
-                <div className="rounded-xl border border-border-subtle bg-bg-surface p-5 shadow-sm">
+                <div className="rounded-xl border border-border-subtle bg-bg-surface p-4 md:p-5 shadow-sm">
                   <span className="text-xs font-mono tracking-wider uppercase text-text-secondary font-bold">Resolved / Closed</span>
                   <div className="mt-2 text-3xl font-semibold text-emerald-400">
                     {tickets.filter(t => t.status === "RESOLVED" || t.status === "CLOSED").length}
                   </div>
                 </div>
-                <div className="rounded-xl border border-border-subtle bg-bg-surface p-5 shadow-sm">
-                  <span className="text-xs font-mono tracking-wider uppercase text-text-secondary font-bold">High/Critical Priority</span>
+                <div className="rounded-xl border border-border-subtle bg-bg-surface p-4 md:p-5 shadow-sm">
+                  <span className="text-xs font-mono tracking-wider uppercase text-text-secondary font-bold">High Priority</span>
                   <div className="mt-2 text-3xl font-semibold text-orange-400">
                     {tickets.filter(t => t.priority === "HIGH").length}
                   </div>
                 </div>
               </div>
 
-              {/* Charts grid mock */}
-              <div className="grid gap-6 md:grid-cols-2">
-                <div className="rounded-xl border border-border-subtle bg-bg-surface p-6">
-                  <h3 className="text-xs font-mono tracking-wider uppercase text-text-secondary font-bold mb-4">Ticket Volume progression</h3>
-                  <div className="relative h-48 w-full flex items-end">
+              {/* Charts grid */}
+              <div className="grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2">
+                <div className="rounded-xl border border-border-subtle bg-bg-surface p-4 md:p-6">
+                  <h3 className="text-xs font-mono tracking-wider uppercase text-text-secondary font-bold mb-4">Ticket Volume Progression</h3>
+                  <div className="relative h-40 md:h-48 w-full flex items-end">
                     <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
                       <defs>
                         <linearGradient id="dbAreaGrad" x1="0" y1="0" x2="0" y2="1">
@@ -862,10 +921,10 @@ export default function DashboardShell({
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-border-subtle bg-bg-surface p-6 flex flex-col justify-between">
-                  <h3 className="text-xs font-mono tracking-wider uppercase text-text-secondary font-bold mb-4">Priority Breakdowns</h3>
+                <div className="rounded-xl border border-border-subtle bg-bg-surface p-4 md:p-6 flex flex-col justify-between">
+                  <h3 className="text-xs font-mono tracking-wider uppercase text-text-secondary font-bold mb-4">Priority Breakdown</h3>
                   <div className="flex items-center justify-around flex-1">
-                    <div className="relative h-28 w-28 flex items-center justify-center">
+                    <div className="relative h-24 w-24 md:h-28 md:w-28 flex items-center justify-center">
                       <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                         <circle cx="18" cy="18" r="15.915" fill="none" stroke="#1E2230" strokeWidth="4" />
                         <circle cx="18" cy="18" r="15.915" fill="none" stroke="#EF4444" strokeWidth="4.2" strokeDasharray="30 70" strokeDashoffset="0" />
@@ -879,15 +938,15 @@ export default function DashboardShell({
                     </div>
                     <div className="space-y-1.5 text-[11px] font-medium">
                       <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded bg-red-500 block" />
+                        <span className="h-2.5 w-2.5 rounded bg-red-500 block shrink-0" />
                         <span>High Priority</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded bg-yellow-500 block" />
+                        <span className="h-2.5 w-2.5 rounded bg-yellow-500 block shrink-0" />
                         <span>Medium Priority</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded bg-emerald-50 block" style={{backgroundColor: "#10B981"}} />
+                        <span className="h-2.5 w-2.5 rounded block shrink-0" style={{backgroundColor: "#10B981"}} />
                         <span>Low Priority</span>
                       </div>
                     </div>
@@ -897,13 +956,13 @@ export default function DashboardShell({
             </div>
           )}
 
-          {/* 2. Tickets View (Split List-Detail Layout) */}
+          {/* 2. Tickets View */}
           {activeTab === "tickets" && (
-            <div className="space-y-6">
-              {/* Header and Add Task */}
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between select-none">
+            <div className="space-y-4 md:space-y-6">
+              {/* Header */}
+              <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between select-none ${mobileDetailOpen ? "hidden md:flex" : ""}`}>
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-text-primary via-slate-100 to-text-secondary bg-clip-text text-transparent">
+                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-text-primary via-slate-100 to-text-secondary bg-clip-text text-transparent">
                     Support Requests
                   </h1>
                   <p className="mt-1 text-sm text-text-secondary">
@@ -913,291 +972,219 @@ export default function DashboardShell({
                   </p>
                 </div>
                 
-                {/* Create ticket button (only customers can submit) */}
                 {userProfile?.role === "customer" && (
                   <button 
                     onClick={() => setIsCreateModalOpen(true)}
-                    className="flex items-center gap-2 rounded-lg bg-primary hover:bg-primary-hover px-4 py-2.5 text-xs font-semibold text-white transition-all shadow-glow hover:scale-[1.02] active:scale-[0.98]"
+                    className="flex items-center gap-2 rounded-lg bg-primary hover:bg-primary-hover px-4 py-2.5 text-xs font-semibold text-white transition-all shadow-glow hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto justify-center"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-4 w-4 shrink-0" />
                     <span>Create Ticket</span>
                   </button>
                 )}
               </div>
 
-              {/* Main Workspace split */}
-              <div className="grid gap-6 lg:grid-cols-12">
-                
-                {/* Ticket list panel */}
-                <div className={`${selectedTicketId ? "lg:col-span-7" : "lg:col-span-12"} transition-all space-y-4`}>
-                  {/* Filters Bar */}
-                  <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border-subtle bg-bg-surface p-3 text-xs select-none">
-                    <span className="text-text-secondary font-semibold font-mono uppercase tracking-wider flex items-center gap-1.5 pr-2">
-                      <Filter className="h-3.5 w-3.5" />
-                      Filters
-                    </span>
-
-                    {/* Status filter */}
-                    <div className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-base px-2.5 py-1 text-text-secondary">
-                      <span className="opacity-80">Status:</span>
-                      <BorderlessSelect 
-                        value={statusFilter}
-                        onChange={setStatusFilter}
-                        options={[
-                          { value: "ALL", label: "All Statuses" },
-                          { value: "OPEN", label: "Open" },
-                          { value: "IN_PROGRESS", label: "In Progress" },
-                          { value: "RESOLVED", label: "Resolved" },
-                          { value: "CLOSED", label: "Closed" }
-                        ]}
-                      />
-                    </div>
-
-                    {/* Priority filter */}
-                    <div className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-base px-2.5 py-1 text-text-secondary">
-                      <span className="opacity-80">Priority:</span>
-                      <BorderlessSelect 
-                        value={priorityFilter}
-                        onChange={setPriorityFilter}
-                        options={[
-                          { value: "ALL", label: "All Priorities" },
-                          { value: "HIGH", label: "High" },
-                          { value: "MEDIUM", label: "Medium" },
-                          { value: "LOW", label: "Low" }
-                        ]}
-                      />
-                    </div>
-                  </div>
-
-                  {/* List container */}
-                  <div className="rounded-xl border border-border-subtle bg-bg-surface overflow-hidden">
-                    {filteredTickets.length === 0 ? (
-                      <div className="py-12 text-center flex flex-col items-center justify-center">
-                        <HelpCircle className="h-8 w-8 text-text-muted mb-3" />
-                        <p className="text-xs text-text-secondary font-semibold">No tickets found</p>
-                        <p className="text-[11px] text-text-muted mt-1">
-                          Create a ticket to get started, or check your active search query/filters.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-border-subtle">
-                        {filteredTickets.map((ticket) => {
-                          const priority = getPriorityConfig(ticket.priority);
-                          const PriorityIcon = priority.icon;
-                          const status = getStatusBadge(ticket.status);
-                          const age = getTicketAge(ticket.created_at);
-
-                          return (
-                            <div 
-                              key={ticket.id}
-                              onClick={() => setSelectedTicketId(ticket.id)}
-                              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4.5 hover:bg-bg-hover/40 transition-all cursor-pointer border-l-2 ${
-                                selectedTicketId === ticket.id ? "border-primary bg-bg-hover/20" : "border-transparent"
-                              }`}
-                            >
-                              {/* Left column info */}
-                              <div className="space-y-2 flex-1">
-                                <h4 className="text-sm font-semibold text-text-primary leading-tight group-hover:text-primary">
-                                  {ticket.title}
-                                </h4>
-                                <div className="flex flex-wrap items-center gap-2.5 text-[10px] text-text-secondary font-semibold">
-                                  <span className="font-mono text-text-muted">By {ticket.creator_name || "Customer"}</span>
-                                  <span className="h-1 w-1 rounded-full bg-text-disabled" />
-                                  <span className="flex items-center gap-1">
-                                    <Calendar className="h-3 w-3" />
-                                    {new Date(ticket.created_at).toLocaleDateString()}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Right column status values */}
-                              <div className="flex items-center gap-2.5 justify-end shrink-0 select-none">
-                                {/* Priority badge */}
-                                <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider ${priority.color}`}>
-                                  <PriorityIcon className="h-3 w-3" />
-                                  {priority.label}
-                                </span>
-
-                                {/* Status badge */}
-                                <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider ${status.color}`}>
-                                  {status.label}
-                                </span>
-
-                                {/* Age Indicator dot & label */}
-                                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider ${age.color}`}>
-                                  <span className={`h-1.5 w-1.5 rounded-full ${age.dot}`} />
-                                  {age.label}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+              {/* Mobile Detail View */}
+              {mobileDetailOpen && selectedTicketId && selectedTicket ? (
+                <div className="md:hidden space-y-4">
+                  <TicketDetailPanel
+                    ticket={selectedTicket}
+                    comments={comments}
+                    isLoadingComments={isLoadingComments}
+                    isSubmittingComment={isSubmittingComment}
+                    isActionLoading={isActionLoading}
+                    userProfile={userProfile}
+                    newCommentText={newCommentText}
+                    setNewCommentText={setNewCommentText}
+                    handleAddComment={handleAddComment}
+                    handleCloseTicket={handleCloseTicket}
+                    handleStatusChange={handleStatusChange}
+                    getStatusBadge={getStatusBadge}
+                    onClose={handleBackToList}
+                    isMobile={true}
+                  />
                 </div>
-
-                {/* Ticket detail drawer panel */}
-                {selectedTicketId && selectedTicket && (
-                  <div className="lg:col-span-5 rounded-xl border border-border-subtle bg-bg-surface p-6 flex flex-col h-[600px] sticky top-20 overflow-y-auto">
+              ) : (
+                /* Desktop: show list (or list+detail split) */
+                <div className={`${mobileDetailOpen ? "hidden md:block" : ""}`}>
+                  {/* Main Workspace split */}
+                  <div className="grid gap-4 md:gap-6 lg:grid-cols-12">
                     
-                    {/* Drawer header */}
-                    <div className="flex justify-between items-start border-b border-border-subtle pb-4 mb-4">
-                      <div className="space-y-1 max-w-[85%]">
-                        <span className="text-[10px] font-mono text-text-muted block uppercase tracking-wider font-bold">Support Request Details</span>
-                        <h3 className="text-base font-bold text-text-primary leading-snug">{selectedTicket.title}</h3>
-                      </div>
-                      <button 
-                        onClick={() => setSelectedTicketId(null)}
-                        className="rounded-lg p-1.5 hover:bg-bg-hover text-text-secondary hover:text-text-primary"
-                      >
-                        <X className="h-4.5 w-4.5" />
-                      </button>
-                    </div>
-
-                    {/* Metadata boxes */}
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4 text-xs font-medium">
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider font-bold">Created By</span>
-                          <span className="block text-text-primary">{selectedTicket.creator_name || "Customer"}</span>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider font-bold">Date Submitted</span>
-                          <span className="block text-text-primary">{new Date(selectedTicket.created_at).toLocaleString()}</span>
-                        </div>
-                      </div>
-
-                      {/* Status select/close trigger */}
-                      <div className="flex items-center gap-4 py-2 px-3 rounded-lg border border-border-subtle bg-bg-elevated text-xs font-semibold">
-                        <div className="flex-1 space-y-1">
-                          <span className="text-[9px] font-mono text-text-muted uppercase tracking-wider block font-bold">Current Status</span>
-                          <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider ${getStatusBadge(selectedTicket.status).color}`}>
-                            {selectedTicket.status}
+                    {/* Ticket list panel */}
+                    <div className={`${selectedTicketId ? "lg:col-span-7" : "lg:col-span-12"} transition-all space-y-3 md:space-y-4`}>
+                      {/* Filters Bar */}
+                      <div className="rounded-xl border border-border-subtle bg-bg-surface p-3 text-xs select-none">
+                        {/* Mobile: collapsible filters */}
+                        <div className="flex items-center justify-between md:hidden">
+                          <span className="text-text-secondary font-semibold font-mono uppercase tracking-wider flex items-center gap-1.5">
+                            <Filter className="h-3.5 w-3.5" />
+                            Filters
                           </span>
+                          <button
+                            onClick={() => setIsFilterOpen(!isFilterOpen)}
+                            className="flex items-center gap-1 text-text-secondary hover:text-text-primary transition-colors"
+                          >
+                            <span className="text-[10px]">
+                              {statusFilter !== "ALL" || priorityFilter !== "ALL" ? "Active" : "None"}
+                            </span>
+                            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isFilterOpen ? "rotate-180" : ""}`} />
+                          </button>
                         </div>
 
-                        {/* Status controls depending on role */}
-                        {userProfile?.role === "agent" ? (
-                          <div className="flex items-center gap-1.5 border border-border-subtle bg-bg-base rounded px-2 py-1">
-                            <span className="text-[10px] text-text-secondary">Update:</span>
+                        {/* Desktop: always visible */}
+                        <div className={`${isFilterOpen ? "mt-3 flex" : "hidden"} md:flex flex-wrap items-center gap-3`}>
+                          <span className="hidden md:flex text-text-secondary font-semibold font-mono uppercase tracking-wider items-center gap-1.5 pr-2">
+                            <Filter className="h-3.5 w-3.5" />
+                            Filters
+                          </span>
+
+                          {/* Status filter */}
+                          <div className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-base px-2.5 py-1 text-text-secondary">
+                            <span className="opacity-80">Status:</span>
                             <BorderlessSelect 
-                              disabled={isActionLoading}
-                              value={selectedTicket.status}
-                              onChange={(val) => handleStatusChange(selectedTicket.id, val as any)}
+                              value={statusFilter}
+                              onChange={setStatusFilter}
                               options={[
+                                { value: "ALL", label: "All Statuses" },
                                 { value: "OPEN", label: "Open" },
                                 { value: "IN_PROGRESS", label: "In Progress" },
                                 { value: "RESOLVED", label: "Resolved" },
                                 { value: "CLOSED", label: "Closed" }
                               ]}
-                              alignRight
                             />
                           </div>
-                        ) : (
-                          // Customer can close their own ticket
-                          selectedTicket.status !== "CLOSED" && (
+
+                          {/* Priority filter */}
+                          <div className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-bg-base px-2.5 py-1 text-text-secondary">
+                            <span className="opacity-80">Priority:</span>
+                            <BorderlessSelect 
+                              value={priorityFilter}
+                              onChange={setPriorityFilter}
+                              options={[
+                                { value: "ALL", label: "All Priorities" },
+                                { value: "HIGH", label: "High" },
+                                { value: "MEDIUM", label: "Medium" },
+                                { value: "LOW", label: "Low" }
+                              ]}
+                            />
+                          </div>
+
+                          {/* Clear filters */}
+                          {(statusFilter !== "ALL" || priorityFilter !== "ALL") && (
                             <button
-                              disabled={isActionLoading}
-                              onClick={() => handleCloseTicket(selectedTicket.id)}
-                              className="rounded bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 px-2.5 py-1 text-[10px] text-red-400 font-bold transition-all"
+                              onClick={() => { setStatusFilter("ALL"); setPriorityFilter("ALL"); }}
+                              className="flex items-center gap-1 text-[10px] text-red-400 hover:text-red-300 font-semibold transition-colors"
                             >
-                              Close Ticket
+                              <X className="h-3 w-3" />
+                              Clear
                             </button>
-                          )
-                        )}
-                      </div>
-
-                      {/* Ticket Description */}
-                      <div className="space-y-1 border-t border-border-subtle pt-4">
-                        <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider font-bold block">Description</span>
-                        <p className="text-xs leading-relaxed text-text-secondary whitespace-pre-wrap">
-                          {selectedTicket.description}
-                        </p>
-                      </div>
-
-                      {/* Attachment file section */}
-                      {selectedTicket.attachment_url && (
-                        <div className="space-y-2 border-t border-border-subtle pt-4">
-                          <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider font-bold block">Attachments</span>
-                          <a 
-                            href={selectedTicket.attachment_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 p-2 rounded-lg border border-border-subtle bg-bg-base text-[11px] font-semibold text-text-secondary hover:text-primary transition-all cursor-pointer"
-                          >
-                            <Paperclip className="h-3.5 w-3.5 text-text-muted shrink-0" />
-                            <span className="truncate flex-1 hover:underline">{selectedTicket.attachment_name || "attachment"}</span>
-                            <ExternalLink className="h-3 w-3 text-text-muted" />
-                          </a>
+                          )}
                         </div>
-                      )}
+                      </div>
 
-                      {/* Comments & history section */}
-                      <div className="border-t border-border-subtle pt-4 space-y-3 flex-1 flex flex-col">
-                        <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider font-bold block">Ticket History & Comments</span>
-                        
-                        {isLoadingComments ? (
-                          <div className="py-6 flex justify-center">
-                            <Loader2 className="h-5 w-5 animate-spin text-text-muted" />
+                      {/* List container */}
+                      <div className="rounded-xl border border-border-subtle bg-bg-surface overflow-hidden">
+                        {filteredTickets.length === 0 ? (
+                          <div className="py-12 text-center flex flex-col items-center justify-center">
+                            <HelpCircle className="h-8 w-8 text-text-muted mb-3" />
+                            <p className="text-xs text-text-secondary font-semibold">No tickets found</p>
+                            <p className="text-[11px] text-text-muted mt-1">
+                              Create a ticket to get started, or adjust your filters.
+                            </p>
                           </div>
                         ) : (
-                          <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
-                            {comments.length === 0 ? (
-                              <p className="text-[10px] text-text-muted text-center py-4">No comments posted yet.</p>
-                            ) : (
-                              comments.map((comment) => (
-                                <div key={comment.id} className="p-3 rounded-lg bg-bg-elevated border border-border-subtle space-y-1.5">
-                                  <div className="flex justify-between items-center text-[9px] font-mono font-bold tracking-wide uppercase">
-                                    <span className="text-primary">{comment.user_name || "User"}</span>
-                                    <span className="text-text-muted">{new Date(comment.created_at).toLocaleString()}</span>
+                          <div className="divide-y divide-border-subtle">
+                            {filteredTickets.map((ticket) => {
+                              const priority = getPriorityConfig(ticket.priority);
+                              const PriorityIcon = priority.icon;
+                              const status = getStatusBadge(ticket.status);
+                              const age = getTicketAge(ticket.created_at);
+
+                              return (
+                                <div 
+                                  key={ticket.id}
+                                  onClick={() => handleTicketSelect(ticket.id)}
+                                  className={`flex flex-col gap-3 px-4 md:px-6 py-4 hover:bg-bg-hover/40 transition-all cursor-pointer border-l-2 ${
+                                    selectedTicketId === ticket.id ? "border-primary bg-bg-hover/20" : "border-transparent"
+                                  }`}
+                                >
+                                  {/* Top row: title + chevron on mobile */}
+                                  <div className="flex items-start justify-between gap-2">
+                                    <h4 className="text-sm font-semibold text-text-primary leading-tight flex-1 min-w-0">
+                                      {ticket.title}
+                                    </h4>
+                                    <ChevronRight className="h-4 w-4 text-text-muted shrink-0 md:hidden mt-0.5" />
                                   </div>
-                                  <p className="text-[11px] leading-relaxed text-text-secondary">{comment.message}</p>
+
+                                  {/* Meta row */}
+                                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-text-secondary font-semibold">
+                                    <span className="font-mono text-text-muted">By {ticket.creator_name || "Customer"}</span>
+                                    <span className="h-1 w-1 rounded-full bg-text-disabled" />
+                                    <span className="flex items-center gap-1">
+                                      <Calendar className="h-3 w-3" />
+                                      {new Date(ticket.created_at).toLocaleDateString()}
+                                    </span>
+                                  </div>
+
+                                  {/* Badge row */}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {/* Priority badge */}
+                                    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider ${priority.color}`}>
+                                      <PriorityIcon className="h-2.5 w-2.5" />
+                                      {priority.label}
+                                    </span>
+
+                                    {/* Status badge */}
+                                    <span className={`rounded-full border px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider ${status.color}`}>
+                                      {status.label}
+                                    </span>
+
+                                    {/* Age indicator */}
+                                    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider ${age.color}`}>
+                                      <span className={`h-1.5 w-1.5 rounded-full ${age.dot}`} />
+                                      {age.label}
+                                    </span>
+                                  </div>
                                 </div>
-                              ))
-                            )}
+                              );
+                            })}
                           </div>
                         )}
-
-                        {/* Add comment form */}
-                        <form onSubmit={handleAddComment} className="pt-2 border-t border-border-subtle">
-                          <div className="flex gap-2">
-                            <input 
-                              type="text" 
-                              required
-                              placeholder="Write a response..."
-                              value={newCommentText}
-                              onChange={(e) => setNewCommentText(e.target.value)}
-                              className="flex-1 rounded-lg border border-border-subtle bg-bg-base px-3 py-1.5 text-xs text-text-primary outline-none focus:border-primary placeholder-text-muted"
-                            />
-                            <button
-                              type="submit"
-                              disabled={isSubmittingComment}
-                              className="rounded-lg bg-primary hover:bg-primary-hover px-3 py-1.5 text-xs font-semibold text-white transition-all disabled:opacity-50"
-                            >
-                              {isSubmittingComment ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                "Reply"
-                              )}
-                            </button>
-                          </div>
-                        </form>
                       </div>
                     </div>
 
+                    {/* Ticket detail drawer panel - Desktop only */}
+                    {selectedTicketId && selectedTicket && (
+                      <div className="hidden md:block lg:col-span-5">
+                        <TicketDetailPanel
+                          ticket={selectedTicket}
+                          comments={comments}
+                          isLoadingComments={isLoadingComments}
+                          isSubmittingComment={isSubmittingComment}
+                          isActionLoading={isActionLoading}
+                          userProfile={userProfile}
+                          newCommentText={newCommentText}
+                          setNewCommentText={setNewCommentText}
+                          handleAddComment={handleAddComment}
+                          handleCloseTicket={handleCloseTicket}
+                          handleStatusChange={handleStatusChange}
+                          getStatusBadge={getStatusBadge}
+                          onClose={() => setSelectedTicketId(null)}
+                          isMobile={false}
+                        />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* 3. Team Members View */}
           {activeTab === "team" && userProfile?.role === "agent" && (
-            <div className="space-y-6">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between select-none">
+            <div className="space-y-4 md:space-y-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between select-none">
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-text-primary via-slate-100 to-text-secondary bg-clip-text text-transparent">
+                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-text-primary via-slate-100 to-text-secondary bg-clip-text text-transparent">
                     Agents & Workspace Users
                   </h1>
                   <p className="mt-1 text-sm text-text-secondary">
@@ -1206,15 +1193,15 @@ export default function DashboardShell({
                 </div>
                 <button 
                   onClick={() => setIsAddUserModalOpen(true)}
-                  className="flex items-center gap-2 rounded-lg bg-primary hover:bg-primary-hover px-4 py-2.5 text-xs font-semibold text-white transition-all shadow-glow hover:scale-[1.02] active:scale-[0.98]"
+                  className="flex items-center gap-2 rounded-lg bg-primary hover:bg-primary-hover px-4 py-2.5 text-xs font-semibold text-white transition-all shadow-glow hover:scale-[1.02] active:scale-[0.98] w-full sm:w-auto justify-center"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4 shrink-0" />
                   <span>Add User</span>
                 </button>
               </div>
 
               <div className="rounded-xl border border-border-subtle bg-bg-surface overflow-hidden">
-                <div className="px-6 py-4.5 border-b border-border-subtle select-none">
+                <div className="px-4 md:px-6 py-4 border-b border-border-subtle select-none">
                   <span className="text-sm font-semibold">Workspace Roster ({roster.length} members)</span>
                 </div>
 
@@ -1222,37 +1209,37 @@ export default function DashboardShell({
                   {roster.length === 0 ? (
                     <div className="py-12 text-center flex flex-col items-center justify-center">
                       <Users className="h-8 w-8 text-text-muted mb-3" />
-                      <p className="text-xs text-text-secondary font-semibold">Kullanıcı bulunamadı</p>
+                      <p className="text-xs text-text-secondary font-semibold">No users found</p>
                     </div>
                   ) : (
                     roster.map((p) => (
-                      <div key={p.id} className="flex items-center justify-between p-6 hover:bg-bg-hover/20 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-primary to-violet-500 flex items-center justify-center font-bold text-sm text-white uppercase select-none">
+                      <div key={p.id} className="flex items-center justify-between p-4 md:p-6 hover:bg-bg-hover/20 transition-colors gap-3">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="h-9 w-9 md:h-10 md:w-10 rounded-full bg-gradient-to-tr from-primary to-violet-500 flex items-center justify-center font-bold text-sm text-white uppercase select-none shrink-0">
                             {p.name.slice(0, 2)}
                           </div>
-                          <div>
-                            <div className="text-sm font-semibold text-text-primary">{p.name}</div>
-                            <div className="text-xs text-text-muted flex items-center gap-1.5 mt-0.5">
-                              <Mail className="h-3 w-3" />
-                              <span>{p.email}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-semibold text-text-primary truncate">{p.name}</div>
+                            <div className="text-xs text-text-muted flex items-center gap-1 mt-0.5 truncate">
+                              <Mail className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{p.email}</span>
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4 select-none">
-                          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-mono font-bold tracking-wider uppercase ${
+                        <div className="flex items-center gap-2 md:gap-4 select-none shrink-0">
+                          <span className={`hidden sm:inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-mono font-bold tracking-wider uppercase ${
                             p.role === "agent"
                               ? "bg-primary/10 border border-primary/20 text-primary"
                               : "bg-bg-hover border border-border-subtle text-text-secondary"
                           }`}>
-                            {p.role === "agent" ? "Support Agent" : "Customer"}
+                            {p.role === "agent" ? "Agent" : "Customer"}
                           </span>
                           {p.id !== userProfile?.id && (
                             <button
                               disabled={deletingUserIds[p.id]}
                               onClick={() => setUserToDelete(p)}
                               className="p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors disabled:opacity-50"
-                              title="Sil"
+                              title="Delete"
                             >
                               {deletingUserIds[p.id] ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1272,9 +1259,9 @@ export default function DashboardShell({
 
           {/* 4. Settings View */}
           {activeTab === "settings" && (
-            <div className="space-y-6">
+            <div className="space-y-4 md:space-y-6">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-text-primary via-slate-100 to-text-secondary bg-clip-text text-transparent">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-text-primary via-slate-100 to-text-secondary bg-clip-text text-transparent">
                   Settings
                 </h1>
                 <p className="mt-1 text-sm text-text-secondary">
@@ -1283,9 +1270,9 @@ export default function DashboardShell({
               </div>
 
               <div className="max-w-xl">
-                <div className="rounded-xl border border-border-subtle bg-bg-surface p-6 space-y-6">
+                <div className="rounded-xl border border-border-subtle bg-bg-surface p-4 md:p-6 space-y-6">
                   <div className="flex items-center gap-3 text-primary">
-                    <Globe className="h-5 w-5" />
+                    <Globe className="h-5 w-5 shrink-0" />
                     <h3 className="text-sm font-semibold text-text-primary">Workspace Profile</h3>
                   </div>
 
@@ -1315,27 +1302,120 @@ export default function DashboardShell({
           )}
 
         </main>
+
+        {/* Mobile Bottom Navigation Bar */}
+        <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border-subtle bg-bg-surface/95 backdrop-blur-md select-none safe-area-bottom">
+          {userProfile?.role === "customer" ? (
+            /* Customer nav: split around center FAB */
+            <div className="flex items-end justify-around px-2 py-2 relative">
+              {/* Left nav items (Dashboard + Tickets) */}
+              {navItems.slice(0, 2).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all flex-1 ${
+                    activeTab === item.id ? "text-primary" : "text-text-muted hover:text-text-secondary"
+                  }`}
+                >
+                  <div className="relative">
+                    <item.icon className={`h-5 w-5 transition-transform ${activeTab === item.id ? "scale-110" : ""}`} />
+                    {"badge" in item && item.badge !== undefined && item.badge > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-primary text-[7px] font-bold text-white flex items-center justify-center">
+                        {item.badge > 99 ? "99" : item.badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-[9px] font-semibold tracking-wide ${activeTab === item.id ? "opacity-100" : "opacity-60"}`}>
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+
+              {/* Center FAB - Create Ticket */}
+              <div className="flex flex-col items-center flex-1">
+                <button
+                  onClick={() => { setActiveTab("tickets"); setIsCreateModalOpen(true); }}
+                  className="-mt-5 mb-1 h-14 w-14 rounded-full bg-primary shadow-glow flex items-center justify-center hover:bg-primary-hover active:scale-95 transition-all"
+                  style={{ boxShadow: '0 0 0 4px #0A0B0F, 0 0 20px rgba(99,102,241,0.4)' }}
+                >
+                  <Plus className="h-6 w-6 text-white" />
+                </button>
+                <span className="text-[9px] font-semibold text-text-muted opacity-60">New</span>
+              </div>
+
+              {/* Right nav items (Settings) */}
+              {navItems.slice(2).map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all flex-1 ${
+                    activeTab === item.id ? "text-primary" : "text-text-muted hover:text-text-secondary"
+                  }`}
+                >
+                  <div className="relative">
+                    <item.icon className={`h-5 w-5 transition-transform ${activeTab === item.id ? "scale-110" : ""}`} />
+                  </div>
+                  <span className={`text-[9px] font-semibold tracking-wide ${activeTab === item.id ? "opacity-100" : "opacity-60"}`}>
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            /* Agent nav: standard flat nav */
+            <div className="flex items-center justify-around px-2 py-2">
+              {navItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavClick(item.id)}
+                  className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl transition-all flex-1 ${
+                    activeTab === item.id ? "text-primary" : "text-text-muted hover:text-text-secondary"
+                  }`}
+                >
+                  <div className="relative">
+                    <item.icon className={`h-5 w-5 transition-transform ${activeTab === item.id ? "scale-110" : ""}`} />
+                    {"badge" in item && item.badge !== undefined && item.badge > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 h-3.5 w-3.5 rounded-full bg-primary text-[7px] font-bold text-white flex items-center justify-center">
+                        {item.badge > 99 ? "99" : item.badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`text-[9px] font-semibold tracking-wide ${activeTab === item.id ? "opacity-100" : "opacity-60"}`}>
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </nav>
+        
+        {/* Spacer for bottom nav on mobile */}
+        <div className="h-20 md:hidden" />
       </div>
 
-      {/* Stateful Modal Component for Ticket Creation (Customer only) */}
+      {/* Create Ticket Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div 
             onClick={() => setIsCreateModalOpen(false)}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
           />
 
-          <div className="relative w-full max-w-md rounded-xl border border-border-default bg-bg-surface p-6 shadow-lg animate-in fade-in zoom-in duration-200">
-            <button 
-              onClick={() => setIsCreateModalOpen(false)}
-              className="absolute right-4 top-4 rounded-lg p-1.5 hover:bg-bg-hover text-text-secondary hover:text-text-primary transition-all"
-            >
-              <X className="h-4 w-4" />
-            </button>
+          <div className="relative w-full sm:max-w-md rounded-t-2xl sm:rounded-xl border border-border-default bg-bg-surface p-5 sm:p-6 shadow-lg animate-in fade-in slide-in-from-bottom sm:zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold bg-gradient-to-r from-text-primary to-text-secondary bg-clip-text text-transparent">
+                Submit Support Request
+              </h3>
+              <button 
+                onClick={() => setIsCreateModalOpen(false)}
+                className="rounded-lg p-1.5 hover:bg-bg-hover text-text-secondary hover:text-text-primary transition-all"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-            <h3 className="text-base font-semibold mb-4 bg-gradient-to-r from-text-primary to-text-secondary bg-clip-text text-transparent">
-              Submit Support Request
-            </h3>
+            {/* Mobile drag handle */}
+            <div className="sm:hidden absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border-strong" />
 
             <form onSubmit={handleCreateTicket} className="space-y-4">
               <div className="space-y-1.5">
@@ -1346,7 +1426,7 @@ export default function DashboardShell({
                   placeholder="e.g. Login page crashes on mobile Safari"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2 text-xs text-text-primary placeholder-text-muted outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                  className="w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2.5 text-sm md:text-xs text-text-primary placeholder-text-muted outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                 />
               </div>
 
@@ -1358,7 +1438,7 @@ export default function DashboardShell({
                   placeholder="Provide detailed steps to reproduce the issue..."
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
-                  className="w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2 text-xs text-text-primary placeholder-text-muted outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 resize-none"
+                  className="w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2.5 text-sm md:text-xs text-text-primary placeholder-text-muted outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 resize-none"
                 />
               </div>
 
@@ -1375,7 +1455,7 @@ export default function DashboardShell({
                 />
               </div>
 
-              {/* Interactive File input select (Optional feature 1) */}
+              {/* File input */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-mono uppercase tracking-wider text-text-secondary font-bold block">Attachments (Optional)</label>
                 
@@ -1387,7 +1467,7 @@ export default function DashboardShell({
                 />
 
                 {selectedFile ? (
-                  <div className="flex items-center gap-2 p-2 rounded-lg border border-primary/20 bg-primary/5 text-[11px] font-semibold text-text-primary">
+                  <div className="flex items-center gap-2 p-2.5 rounded-lg border border-primary/20 bg-primary/5 text-[11px] font-semibold text-text-primary">
                     <Paperclip className="h-4 w-4 text-primary shrink-0" />
                     <span className="truncate flex-1">{selectedFile.name}</span>
                     <button 
@@ -1405,32 +1485,32 @@ export default function DashboardShell({
                     onDragEnter={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    className={`border border-dashed rounded-lg p-4 text-center cursor-pointer transition-all select-none flex flex-col items-center justify-center gap-1 bg-bg-base ${
+                    className={`border border-dashed rounded-lg p-5 text-center cursor-pointer transition-all select-none flex flex-col items-center justify-center gap-2 bg-bg-base ${
                       isDragging 
                         ? "border-primary bg-primary/10 scale-[1.01] shadow-glow" 
                         : "border-border-subtle hover:border-primary/50 hover:bg-primary/5"
                     }`}
                   >
-                    <Paperclip className={`h-4.5 w-4.5 mb-1 transition-all ${isDragging ? "text-primary scale-110" : "text-text-muted hover:scale-105"}`} />
+                    <Paperclip className={`h-5 w-5 transition-all ${isDragging ? "text-primary scale-110" : "text-text-muted"}`} />
                     <span className={`text-[10px] font-bold block ${isDragging ? "text-primary" : "text-text-muted"}`}>
-                      {isDragging ? "Drop your file here!" : "Drag & drop files here"}
+                      {isDragging ? "Drop your file here!" : "Tap to select or drag & drop"}
                     </span>
                   </div>
                 )}
               </div>
 
-              <div className="pt-2 flex justify-end gap-3">
+              <div className="pt-2 flex gap-3">
                 <button 
                   type="button"
                   onClick={() => { setIsCreateModalOpen(false); handleRemoveFile(); }}
-                  className="rounded-lg hover:bg-bg-hover border border-border-subtle px-4 py-2 text-xs font-semibold text-text-secondary transition-all"
+                  className="flex-1 rounded-lg hover:bg-bg-hover border border-border-subtle px-4 py-2.5 text-xs font-semibold text-text-secondary transition-all"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
                   disabled={isUploading}
-                  className="rounded-lg bg-primary hover:bg-primary-hover px-4 py-2 text-xs font-semibold text-white transition-all shadow-glow disabled:opacity-50 flex items-center gap-1.5"
+                  className="flex-1 rounded-lg bg-primary hover:bg-primary-hover px-4 py-2.5 text-xs font-semibold text-white transition-all shadow-glow disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
                   {isUploading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   <span>Submit Ticket</span>
@@ -1441,25 +1521,29 @@ export default function DashboardShell({
         </div>
       )}
 
-      {/* Stateful Modal Component for User Creation (Agent only) */}
+      {/* Add User Modal */}
       {isAddUserModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div 
             onClick={() => { setIsAddUserModalOpen(false); setAddError(""); }}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
           />
 
-          <div className="relative w-full max-w-md rounded-xl border border-border-default bg-bg-surface p-6 shadow-lg animate-in fade-in zoom-in duration-200">
-            <button 
-              onClick={() => { setIsAddUserModalOpen(false); setAddError(""); }}
-              className="absolute right-4 top-4 rounded-lg p-1.5 hover:bg-bg-hover text-text-secondary hover:text-text-primary transition-all"
-            >
-              <X className="h-4 w-4" />
-            </button>
+          <div className="relative w-full sm:max-w-md rounded-t-2xl sm:rounded-xl border border-border-default bg-bg-surface p-5 sm:p-6 shadow-lg animate-in fade-in slide-in-from-bottom sm:zoom-in duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold bg-gradient-to-r from-text-primary to-text-secondary bg-clip-text text-transparent">
+                Yeni Kullanıcı Ekle
+              </h3>
+              <button 
+                onClick={() => { setIsAddUserModalOpen(false); setAddError(""); }}
+                className="rounded-lg p-1.5 hover:bg-bg-hover text-text-secondary hover:text-text-primary transition-all"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-            <h3 className="text-base font-semibold mb-4 bg-gradient-to-r from-text-primary to-text-secondary bg-clip-text text-transparent">
-              Yeni Kullanıcı Ekle
-            </h3>
+            {/* Mobile drag handle */}
+            <div className="sm:hidden absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border-strong" />
 
             {addError && (
               <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/5 p-3 text-center text-xs text-red-400 font-semibold leading-relaxed">
@@ -1476,7 +1560,7 @@ export default function DashboardShell({
                   placeholder="John Doe"
                   value={addName}
                   onChange={(e) => setAddName(e.target.value)}
-                  className="w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2 text-xs text-text-primary placeholder-text-muted outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                  className="w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2.5 text-sm md:text-xs text-text-primary placeholder-text-muted outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                 />
               </div>
 
@@ -1488,7 +1572,7 @@ export default function DashboardShell({
                   placeholder="user@example.com"
                   value={addEmail}
                   onChange={(e) => setAddEmail(e.target.value)}
-                  className="w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2 text-xs text-text-primary placeholder-text-muted outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                  className="w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2.5 text-sm md:text-xs text-text-primary placeholder-text-muted outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                 />
               </div>
 
@@ -1500,7 +1584,7 @@ export default function DashboardShell({
                   placeholder="••••••••"
                   value={addPassword}
                   onChange={(e) => setAddPassword(e.target.value)}
-                  className="w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2 text-xs text-text-primary placeholder-text-muted outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                  className="w-full rounded-lg border border-border-subtle bg-bg-base px-3 py-2.5 text-sm md:text-xs text-text-primary placeholder-text-muted outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                 />
               </div>
 
@@ -1510,7 +1594,7 @@ export default function DashboardShell({
                   <button
                     type="button"
                     onClick={() => setAddRole("customer")}
-                    className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition-all ${
+                    className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold transition-all ${
                       addRole === "customer"
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border-subtle bg-bg-base text-text-secondary hover:text-text-primary"
@@ -1521,7 +1605,7 @@ export default function DashboardShell({
                   <button
                     type="button"
                     onClick={() => setAddRole("agent")}
-                    className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition-all ${
+                    className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-xs font-semibold transition-all ${
                       addRole === "agent"
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border-subtle bg-bg-base text-text-secondary hover:text-text-primary"
@@ -1532,18 +1616,18 @@ export default function DashboardShell({
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end gap-3">
+              <div className="pt-2 flex gap-3">
                 <button 
                   type="button"
                   onClick={() => { setIsAddUserModalOpen(false); setAddError(""); }}
-                  className="rounded-lg hover:bg-bg-hover border border-border-subtle px-4 py-2 text-xs font-semibold text-text-secondary transition-all"
+                  className="flex-1 rounded-lg hover:bg-bg-hover border border-border-subtle px-4 py-2.5 text-xs font-semibold text-text-secondary transition-all"
                 >
                   İptal
                 </button>
                 <button 
                   type="submit"
                   disabled={isAddingUser}
-                  className="rounded-lg bg-primary hover:bg-primary-hover px-4 py-2 text-xs font-semibold text-white transition-all shadow-glow disabled:opacity-50 flex items-center gap-1.5"
+                  className="flex-1 rounded-lg bg-primary hover:bg-primary-hover px-4 py-2.5 text-xs font-semibold text-white transition-all shadow-glow disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
                   {isAddingUser && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   <span>Kullanıcı Ekle</span>
@@ -1554,15 +1638,18 @@ export default function DashboardShell({
         </div>
       )}
 
-      {/* Stateful Modal Component for User Deletion Confirmation (Agent only) */}
+      {/* Delete Confirmation Modal */}
       {userToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div 
             onClick={() => setUserToDelete(null)}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
           />
 
-          <div className="relative w-full max-w-sm rounded-xl border border-border-default bg-bg-surface p-6 shadow-lg animate-in fade-in zoom-in duration-200">
+          <div className="relative w-full sm:max-w-sm rounded-t-2xl sm:rounded-xl border border-border-default bg-bg-surface p-5 sm:p-6 shadow-lg animate-in fade-in slide-in-from-bottom sm:zoom-in duration-200">
+            {/* Mobile drag handle */}
+            <div className="sm:hidden absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-border-strong" />
+
             <button 
               onClick={() => setUserToDelete(null)}
               className="absolute right-4 top-4 rounded-lg p-1.5 hover:bg-bg-hover text-text-secondary hover:text-text-primary transition-all"
@@ -1578,18 +1665,18 @@ export default function DashboardShell({
               <span className="font-semibold text-text-primary">{userToDelete.name}</span> (<span className="font-mono text-text-muted">{userToDelete.email}</span>) isimli kullanıcıyı kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
             </p>
 
-            <div className="flex justify-end gap-3">
+            <div className="flex gap-3">
               <button 
                 type="button"
                 onClick={() => setUserToDelete(null)}
-                className="rounded-lg hover:bg-bg-hover border border-border-subtle px-4 py-2 text-xs font-semibold text-text-secondary transition-all"
+                className="flex-1 rounded-lg hover:bg-bg-hover border border-border-subtle px-4 py-2.5 text-xs font-semibold text-text-secondary transition-all"
               >
                 İptal
               </button>
               <button 
                 type="button"
                 onClick={() => handleDeleteUser(userToDelete.id)}
-                className="rounded-lg bg-red-500 hover:bg-red-600 px-4 py-2 text-xs font-semibold text-white transition-all shadow-glow"
+                className="flex-1 rounded-lg bg-red-500 hover:bg-red-600 px-4 py-2.5 text-xs font-semibold text-white transition-all"
               >
                 Kullanıcıyı Sil
               </button>
@@ -1597,6 +1684,190 @@ export default function DashboardShell({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Extracted TicketDetailPanel component for reuse between mobile and desktop
+interface TicketDetailPanelProps {
+  ticket: Ticket;
+  comments: Comment[];
+  isLoadingComments: boolean;
+  isSubmittingComment: boolean;
+  isActionLoading: boolean;
+  userProfile: Profile | null;
+  newCommentText: string;
+  setNewCommentText: (val: string) => void;
+  handleAddComment: (e: React.FormEvent) => void;
+  handleCloseTicket: (id: string) => void;
+  handleStatusChange: (id: string, status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED") => void;
+  getStatusBadge: (status: string) => { label: string; color: string };
+  onClose: () => void;
+  isMobile: boolean;
+}
+
+function TicketDetailPanel({
+  ticket,
+  comments,
+  isLoadingComments,
+  isSubmittingComment,
+  isActionLoading,
+  userProfile,
+  newCommentText,
+  setNewCommentText,
+  handleAddComment,
+  handleCloseTicket,
+  handleStatusChange,
+  getStatusBadge,
+  onClose,
+  isMobile
+}: TicketDetailPanelProps) {
+  return (
+    <div className={`rounded-xl border border-border-subtle bg-bg-surface p-4 md:p-6 flex flex-col ${isMobile ? "min-h-0" : "h-[600px] sticky top-20 overflow-y-auto"}`}>
+      {/* Drawer header */}
+      <div className="flex justify-between items-start border-b border-border-subtle pb-4 mb-4">
+        <div className="space-y-1 min-w-0 flex-1 pr-2">
+          <span className="text-[10px] font-mono text-text-muted block uppercase tracking-wider font-bold">Support Request Details</span>
+          <h3 className="text-sm md:text-base font-bold text-text-primary leading-snug">{ticket.title}</h3>
+        </div>
+        {!isMobile && (
+          <button 
+            onClick={onClose}
+            className="rounded-lg p-1.5 hover:bg-bg-hover text-text-secondary hover:text-text-primary shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Metadata boxes */}
+      <div className="space-y-4 flex-1 flex flex-col">
+        <div className="grid grid-cols-2 gap-3 text-xs font-medium">
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider font-bold">Created By</span>
+            <span className="block text-text-primary">{ticket.creator_name || "Customer"}</span>
+          </div>
+          <div className="space-y-1">
+            <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider font-bold">Date Submitted</span>
+            <span className="block text-text-primary text-[11px]">{new Date(ticket.created_at).toLocaleString()}</span>
+          </div>
+        </div>
+
+        {/* Status control */}
+        <div className="flex items-center gap-3 py-2 px-3 rounded-lg border border-border-subtle bg-bg-elevated text-xs font-semibold flex-wrap">
+          <div className="flex-1 space-y-1 min-w-0">
+            <span className="text-[9px] font-mono text-text-muted uppercase tracking-wider block font-bold">Current Status</span>
+            <span className={`inline-block rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider ${getStatusBadge(ticket.status).color}`}>
+              {ticket.status}
+            </span>
+          </div>
+
+          {userProfile?.role === "agent" ? (
+            <div className="flex items-center gap-1.5 border border-border-subtle bg-bg-base rounded px-2 py-1">
+              <span className="text-[10px] text-text-secondary">Update:</span>
+              <BorderlessSelect 
+                disabled={isActionLoading}
+                value={ticket.status}
+                onChange={(val) => handleStatusChange(ticket.id, val as any)}
+                options={[
+                  { value: "OPEN", label: "Open" },
+                  { value: "IN_PROGRESS", label: "In Progress" },
+                  { value: "RESOLVED", label: "Resolved" },
+                  { value: "CLOSED", label: "Closed" }
+                ]}
+                alignRight
+              />
+            </div>
+          ) : (
+            ticket.status !== "CLOSED" && (
+              <button
+                disabled={isActionLoading}
+                onClick={() => handleCloseTicket(ticket.id)}
+                className="rounded bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 px-2.5 py-1 text-[10px] text-red-400 font-bold transition-all"
+              >
+                Close Ticket
+              </button>
+            )
+          )}
+        </div>
+
+        {/* Description */}
+        <div className="space-y-1 border-t border-border-subtle pt-4">
+          <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider font-bold block">Description</span>
+          <p className="text-xs leading-relaxed text-text-secondary whitespace-pre-wrap">
+            {ticket.description}
+          </p>
+        </div>
+
+        {/* Attachment */}
+        {ticket.attachment_url && (
+          <div className="space-y-2 border-t border-border-subtle pt-4">
+            <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider font-bold block">Attachments</span>
+            <a 
+              href={ticket.attachment_url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 p-2.5 rounded-lg border border-border-subtle bg-bg-base text-[11px] font-semibold text-text-secondary hover:text-primary transition-all cursor-pointer"
+            >
+              <Paperclip className="h-3.5 w-3.5 text-text-muted shrink-0" />
+              <span className="truncate flex-1 hover:underline">{ticket.attachment_name || "attachment"}</span>
+              <ExternalLink className="h-3 w-3 text-text-muted shrink-0" />
+            </a>
+          </div>
+        )}
+
+        {/* Comments section */}
+        <div className="border-t border-border-subtle pt-4 space-y-3 flex-1 flex flex-col min-h-0">
+          <span className="text-[10px] font-mono text-text-muted uppercase tracking-wider font-bold block">Ticket History & Comments</span>
+          
+          {isLoadingComments ? (
+            <div className="py-6 flex justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-text-muted" />
+            </div>
+          ) : (
+            <div className={`space-y-3 overflow-y-auto pr-1 flex-1 ${isMobile ? "max-h-64" : "max-h-48"}`}>
+              {comments.length === 0 ? (
+                <p className="text-[10px] text-text-muted text-center py-4">No comments posted yet.</p>
+              ) : (
+                comments.map((comment) => (
+                  <div key={comment.id} className="p-3 rounded-lg bg-bg-elevated border border-border-subtle space-y-1.5">
+                    <div className="flex justify-between items-center text-[9px] font-mono font-bold tracking-wide uppercase flex-wrap gap-1">
+                      <span className="text-primary">{comment.user_name || "User"}</span>
+                      <span className="text-text-muted">{new Date(comment.created_at).toLocaleString()}</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-text-secondary">{comment.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Add comment form */}
+          <form onSubmit={handleAddComment} className="pt-2 border-t border-border-subtle">
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                required
+                placeholder="Write a response..."
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+                className="flex-1 min-w-0 rounded-lg border border-border-subtle bg-bg-base px-3 py-2 text-xs text-text-primary outline-none focus:border-primary placeholder-text-muted"
+              />
+              <button
+                type="submit"
+                disabled={isSubmittingComment}
+                className="shrink-0 rounded-lg bg-primary hover:bg-primary-hover px-3 py-2 text-xs font-semibold text-white transition-all disabled:opacity-50"
+              >
+                {isSubmittingComment ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  "Reply"
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

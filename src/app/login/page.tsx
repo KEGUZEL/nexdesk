@@ -31,11 +31,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-base px-4 text-text-primary select-none">
+    <div className="flex min-h-screen items-center justify-center bg-bg-base px-4 py-8 text-text-primary select-none">
       {/* Background Glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
 
-      <div className="w-full max-w-md space-y-6 rounded-2xl border border-border-default bg-bg-surface p-8 shadow-lg relative overflow-hidden">
+      <div className="w-full max-w-md space-y-6 rounded-2xl border border-border-default bg-bg-surface px-6 py-8 sm:p-8 shadow-lg relative overflow-hidden">
         {/* Decorative corner glow */}
         <div className="absolute -top-10 -right-10 w-24 h-24 rounded-full bg-primary/20 blur-2xl" />
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-border-subtle bg-bg-base py-2 pl-10 pr-4 text-xs text-text-primary placeholder-text-muted outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary/20"
+                className="w-full rounded-lg border border-border-subtle bg-bg-base py-2.5 pl-10 pr-4 text-sm md:text-xs text-text-primary placeholder-text-muted outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary/20"
               />
             </div>
           </div>
@@ -88,7 +88,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-border-subtle bg-bg-base py-2 pl-10 pr-4 text-xs text-text-primary placeholder-text-muted outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary/20"
+                className="w-full rounded-lg border border-border-subtle bg-bg-base py-2.5 pl-10 pr-4 text-sm md:text-xs text-text-primary placeholder-text-muted outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary/20"
               />
             </div>
           </div>
@@ -96,7 +96,7 @@ export default function LoginPage() {
           <button 
             type="submit"
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary hover:bg-primary-hover px-4 py-2.5 text-xs font-semibold text-white transition-all shadow-glow hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none"
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary hover:bg-primary-hover px-4 py-3 md:py-2.5 text-sm md:text-xs font-semibold text-white transition-all shadow-glow hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
